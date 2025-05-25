@@ -8,6 +8,7 @@ from django.db import models
 class Assistant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
     instructions = models.TextField(blank=True)
     tools = models.JSONField(default=list, help_text="e.g. ['code_interpreter']")
     created_at = models.DateTimeField(auto_now_add=True)

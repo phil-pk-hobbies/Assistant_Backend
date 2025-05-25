@@ -18,5 +18,5 @@ class AssistantSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Assistant
-        fields = ['id', 'name', 'instructions', 'tools', 'created_at', 'messages']
+        fields = ['id', 'name', 'description', 'instructions', 'tools', 'created_at', 'messages']
         read_only_fields = ['id', 'created_at']
