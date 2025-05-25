@@ -7,17 +7,13 @@ REST endpoints
 /api/assistants/<id>/chat/  POST {"content": "..."}  – streams the assistant reply
 """
 import os
-import openai
 from django.http import JsonResponse
 import time
-from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db import transaction
 from django.utils import timezone
-from .models import Message
 from .models import Assistant, Message
 from .serializers import AssistantSerializer, MessageSerializer
 
@@ -33,6 +29,8 @@ class AssistantViewSet(viewsets.ModelViewSet):
     serializer_class = AssistantSerializer
 
     def perform_create(self, serializer):
+        import openai
+
         data   = self.request.data
         client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -81,6 +79,18 @@ class AssistantViewSet(viewsets.ModelViewSet):
             description=data.get("description") or "",
         )
 
+    def perform_destroy(self, instance):
+        """Delete the assistant locally and remotely in OpenAI."""
+        import openai
+
+        if instance.openai_id:
+            try:
+                client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+                client.beta.assistants.delete(instance.openai_id)
+            except Exception:
+                pass
+        instance.delete()
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  Messages (read-only)
@@ -107,6 +117,7 @@ class ChatView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         # 🔹 1.  OpenAI client
+        import openai
         client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
         # 🔹 2.  Make sure the assistant has a thread
