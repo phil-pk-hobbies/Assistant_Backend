@@ -156,3 +156,13 @@ class ChatView(APIView):
 
         # 🔹 8.  Return a normal JSON response
         return JsonResponse({"content": assistant_msg})
+
+
+class ChatHistoryView(APIView):
+    """Return entire chat history for a given assistant."""
+
+    def get(self, request, pk):
+        assistant = get_object_or_404(Assistant, pk=pk)
+        messages = assistant.messages.all()
+        serializer = MessageSerializer(messages, many=True)
+        return Response(serializer.data)
