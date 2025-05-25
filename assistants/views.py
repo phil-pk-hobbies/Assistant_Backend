@@ -8,13 +8,16 @@ REST endpoints
 """
 import os
 import openai
-
+from django.http import JsonResponse
+import time
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
+from django.db import transaction
+from django.utils import timezone
+from .models import Message
 from .models import Assistant, Message
 from .serializers import AssistantSerializer, MessageSerializer
 
@@ -90,52 +93,66 @@ class ChatView(APIView):
     """
     POST /api/assistants/<uuid>/chat/
     Body: {"content": "..."}
-    Streams the assistant’s reply back as Server-Sent Events (SSE).
     """
 
     def post(self, request, pk):
         assistant = get_object_or_404(Assistant, pk=pk)
-
-        user_msg = request.data.get("content", "").strip()
+        user_msg  = request.data.get("content", "").strip()
         if not user_msg:
             return Response({"detail": "`content` field is required"},
                             status=status.HTTP_400_BAD_REQUEST)
 
+        # 🔹 1.  OpenAI client
         client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-        # 1️⃣  guarantee we have a thread
+        # 🔹 2.  Make sure the assistant has a thread
         if not assistant.thread_id:
             thread = client.beta.threads.create()
             assistant.thread_id = thread.id
             assistant.save(update_fields=["thread_id"])
 
-        # 2️⃣  add the user’s message
+        # 🔹 3.  Store the user message locally *and* remotely
+        Message.objects.create(
+            assistant=assistant, role="user",
+            content=user_msg, created_at=timezone.now()
+        )
         client.beta.threads.messages.create(
             thread_id=assistant.thread_id,
             role="user",
             content=user_msg,
         )
 
-        # 3️⃣  run & stream deltas
-        run_stream = client.beta.threads.runs.create(
+        # 🔹 4.  Kick off a run (stream = False)
+        run = client.beta.threads.runs.create(
             thread_id=assistant.thread_id,
             assistant_id=assistant.openai_id,
-            stream=True,
+            stream=False,
         )
 
-        def sse_events():
-            """Yield only the message deltas from the streaming run."""
-            for chunk in run_stream:
-                # The stream returns many event types.  Only ``thread.message.delta``
-                # events contain the incremental content from the assistant.  Skip
-                # all other events to avoid attribute errors like ``ThreadRunCreated``
-                # having no ``delta`` attribute.
-                if getattr(chunk, "event", None) == "thread.message.delta":
-                    text = getattr(chunk.data.delta, "content", "") or ""
-                    if text:
-                        yield f"data: {text}\n\n"
+        # 🔹 5.  Poll until it finishes
+        while run.status not in ("completed", "failed", "cancelled"):
+            time.sleep(0.5)
+            run = client.beta.threads.runs.retrieve(
+                thread_id=assistant.thread_id,
+                run_id=run.id,
+            )
+        if run.status != "completed":
+            return Response({"detail": f"Run ended with status '{run.status}'"},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        return StreamingHttpResponse(
-            streaming_content=sse_events(),
-            content_type="text/event-stream",
+        # 🔹 6.  Get the assistant’s reply (most recent msg in the thread)
+        msgs = client.beta.threads.messages.list(
+            thread_id=assistant.thread_id, limit=1
         )
+        assistant_msg = msgs.data[0].content[0].text.value
+
+        # 🔹 7.  Persist it locally
+        Message.objects.create(
+            assistant=assistant, role="assistant",
+            content=assistant_msg, created_at=timezone.now()
+        )
+
+        print(assistant_msg)
+
+        # 🔹 8.  Return a normal JSON response
+        return JsonResponse({"content": assistant_msg})
