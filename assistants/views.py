@@ -50,11 +50,12 @@ class AssistantViewSet(viewsets.ModelViewSet):
             tools = data.get("tools", []) or []
         tool_specs = [{"type": t} for t in tools] or None
 
+        model_name = data.get("model", "gpt-4o")
         base_kwargs = dict(
             name=data.get("name", ""),
             description=data.get("description") or "",
             instructions=data.get("instructions") or "",
-            model=data.get("model", "gpt-4o"),
+            model=model_name,
             tools=tool_specs,
         )
 
@@ -77,6 +78,7 @@ class AssistantViewSet(viewsets.ModelViewSet):
             openai_id=oa_asst.id,
             tools=tools,
             description=data.get("description") or "",
+            model=model_name,
         )
 
     def perform_destroy(self, instance):

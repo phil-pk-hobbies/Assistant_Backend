@@ -13,10 +13,11 @@ class AssistantSerializer(serializers.ModelSerializer):
     tools = serializers.ListField(child=serializers.CharField(),
                                   required=False,  # allow it to be omitted
                                   default=list)
+    model = serializers.CharField(default="gpt-4o")
 
     messages = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
 
     class Meta:
         model = Assistant
-        fields = ['id', 'name', 'description', 'instructions', 'tools', 'created_at', 'messages']
+        fields = ['id', 'name', 'description', 'instructions', 'model', 'tools', 'created_at', 'messages']
         read_only_fields = ['id', 'created_at']

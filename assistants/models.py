@@ -11,6 +11,7 @@ class Assistant(models.Model):
     description = models.TextField(blank=True)
     instructions = models.TextField(blank=True)
     tools = models.JSONField(default=list, help_text="e.g. ['code_interpreter']")
+    model = models.CharField(max_length=40, default="gpt-4o")
     created_at = models.DateTimeField(auto_now_add=True)
     openai_id  = models.CharField(max_length=40, blank=True, null=True)  # asst_…
     thread_id  = models.CharField(max_length=40, blank=True, null=True)  # thr_…

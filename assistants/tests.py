@@ -28,3 +28,28 @@ class DeleteAssistantTests(TestCase):
         self.assertFalse(Assistant.objects.filter(id=assistant.id).exists())
         delete_mock.assert_called_with(assistant.openai_id)
 
+
+class CreateAssistantModelTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_create_assistant_stores_model(self):
+        create_mock = MagicMock(return_value=types.SimpleNamespace(id="asst_999"))
+
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(assistants=types.SimpleNamespace(create=create_mock))
+                self.files = types.SimpleNamespace(create=MagicMock())
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.post('/api/assistants/', {
+                'name': 'Test',
+                'model': 'gpt-3.5-turbo',
+            }, format='json')
+
+        self.assertEqual(resp.status_code, 201)
+        asst = Assistant.objects.get(name='Test')
+        self.assertEqual(asst.model, 'gpt-3.5-turbo')
+
