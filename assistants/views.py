@@ -75,6 +75,7 @@ class AssistantViewSet(viewsets.ModelViewSet):
         serializer.save(
             openai_id=oa_asst.id,
             tools=tools,
+            description=data.get("description") or "",
         )
 
 
