@@ -46,7 +46,10 @@ class AssistantViewSet(viewsets.ModelViewSet):
             uploaded_file_ids.append(resp.id)
 
         # 2️⃣  build kwargs common to every assistant
-        tools      = data.getlist("tools") if "tools" in data else []
+        if hasattr(data, "getlist"):
+            tools = data.getlist("tools") if "tools" in data else []
+        else:
+            tools = data.get("tools", []) or []
         tool_specs = [{"type": t} for t in tools] or None
 
         base_kwargs = dict(
