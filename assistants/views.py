@@ -124,10 +124,16 @@ class ChatView(APIView):
         )
 
         def sse_events():
+            """Yield only the message deltas from the streaming run."""
             for chunk in run_stream:
-                text = chunk.delta.get("content") or ""
-                if text:
-                    yield f"data: {text}\n\n"
+                # The stream returns many event types.  Only ``thread.message.delta``
+                # events contain the incremental content from the assistant.  Skip
+                # all other events to avoid attribute errors like ``ThreadRunCreated``
+                # having no ``delta`` attribute.
+                if getattr(chunk, "event", None) == "thread.message.delta":
+                    text = getattr(chunk.data.delta, "content", "") or ""
+                    if text:
+                        yield f"data: {text}\n\n"
 
         return StreamingHttpResponse(
             streaming_content=sse_events(),
