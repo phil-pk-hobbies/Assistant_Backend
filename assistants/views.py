@@ -60,7 +60,7 @@ class AssistantViewSet(viewsets.ModelViewSet):
             model=model_name,
             tools=tool_specs,
         )
-        if model_name.startswith("o:"):
+        if model_name.startswith("o"):
             base_kwargs["reasoning_effort"] = effort
 
         # 3️⃣  attach files to the correct tool via tool_resources
@@ -99,6 +99,11 @@ class AssistantViewSet(viewsets.ModelViewSet):
 
         instance = serializer.save()
 
+        # ensure the stored instance always has a valid reasoning_effort
+        if not instance.reasoning_effort:
+            instance.reasoning_effort = "medium"
+            instance.save(update_fields=["reasoning_effort"])
+
         if instance.openai_id:
             client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
             update_kwargs = dict(
@@ -113,7 +118,7 @@ class AssistantViewSet(viewsets.ModelViewSet):
             # present it will cause an ``unsupported_model`` error for o* models,
             # so explicitly remove it.
             update_kwargs.pop("temperature", None)
-            if instance.model.startswith("o:"):
+            if instance.model.startswith("o"):
                 update_kwargs["reasoning_effort"] = instance.reasoning_effort
             client.beta.assistants.update(instance.openai_id, **update_kwargs)
 
