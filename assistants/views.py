@@ -179,6 +179,10 @@ class AssistantViewSet(viewsets.ModelViewSet):
             update_kwargs.pop("temperature", None)
             if instance.model.startswith("o"):
                 update_kwargs["reasoning_effort"] = instance.reasoning_effort
+            else:
+                # remove ``reasoning_effort`` if switching from an ``o`` model
+                # to a GPT-* model, otherwise the API rejects the update
+                update_kwargs["reasoning_effort"] = None
             if tool_resources:
                 update_kwargs["tool_resources"] = tool_resources
             client.beta.assistants.update(instance.openai_id, **update_kwargs)
