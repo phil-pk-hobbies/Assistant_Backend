@@ -46,12 +46,28 @@ class CreateAssistantModelTests(TestCase):
         with patch.dict(sys.modules, {'openai': dummy_openai}):
             resp = self.client.post('/api/assistants/', {
                 'name': 'Test',
-                'model': 'gpt-3.5-turbo',
+                'model': 'gpt-4',
             }, format='json')
 
         self.assertEqual(resp.status_code, 201)
         asst = Assistant.objects.get(name='Test')
-        self.assertEqual(asst.model, 'gpt-3.5-turbo')
+        self.assertEqual(asst.model, 'gpt-4')
+
+    def test_create_assistant_invalid_model_fails(self):
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(assistants=types.SimpleNamespace(create=MagicMock()))
+                self.files = types.SimpleNamespace(create=MagicMock())
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.post('/api/assistants/', {
+                'name': 'TestBad',
+                'model': 'gpt-3.5-turbo',
+            }, format='json')
+
+        self.assertEqual(resp.status_code, 400)
 
 
 class UpdateAssistantTests(TestCase):
