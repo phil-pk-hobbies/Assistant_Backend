@@ -494,3 +494,19 @@ class ClearToolsTests(TestCase):
         )
 
 
+class VectorStoreIdViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_returns_vector_store_id(self):
+        assistant = Assistant.objects.create(name='VS', vector_store_id='vs_1')
+        resp = self.client.get(f'/api/assistants/{assistant.id}/vector-store/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['vector_store_id'], 'vs_1')
+
+    def test_missing_vector_store_returns_404(self):
+        assistant = Assistant.objects.create(name='NoVS')
+        resp = self.client.get(f'/api/assistants/{assistant.id}/vector-store/')
+        self.assertEqual(resp.status_code, 404)
+
+
