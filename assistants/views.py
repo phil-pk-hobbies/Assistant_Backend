@@ -308,3 +308,16 @@ class ResetThreadView(APIView):
         assistant.save(update_fields=["thread_id"])
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class VectorStoreIdView(APIView):
+    """Return the vector store ID for an assistant."""
+
+    def get(self, request, pk):
+        assistant = get_object_or_404(Assistant, pk=pk)
+        if not assistant.vector_store_id:
+            return Response(
+                {"detail": "No vector store for this assistant."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response({"vector_store_id": assistant.vector_store_id})
