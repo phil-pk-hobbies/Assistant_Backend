@@ -7,7 +7,14 @@ from django.db import models
 # ─────────────────────────────────────────────────────────────────────────────
 #  Allowed assistant models
 # ─────────────────────────────────────────────────────────────────────────────
-ALLOWED_MODELS = ["gpt-4", "gpt-4o", "o1-mini", "o3-mini"]
+ALLOWED_MODELS = ["gpt-4", "gpt-4o", "o1-mini", "o3-mini", "o:mini"]
+
+# Supported reasoning effort levels
+REASONING_EFFORT_CHOICES = [
+    ("low", "low"),
+    ("medium", "medium"),
+    ("high", "high"),
+]
 
 
 class Assistant(models.Model):
@@ -18,6 +25,11 @@ class Assistant(models.Model):
     tools = models.JSONField(default=list, help_text="e.g. ['code_interpreter']")
     MODEL_CHOICES = [(m, m) for m in ALLOWED_MODELS]
     model = models.CharField(max_length=40, default="gpt-4o", choices=MODEL_CHOICES)
+    reasoning_effort = models.CharField(
+        max_length=6,
+        choices=REASONING_EFFORT_CHOICES,
+        default="medium",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     openai_id  = models.CharField(max_length=40, blank=True, null=True)  # asst_…
     thread_id  = models.CharField(max_length=40, blank=True, null=True)  # thr_…
