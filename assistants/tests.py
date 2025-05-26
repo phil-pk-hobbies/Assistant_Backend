@@ -460,4 +460,37 @@ class ClearToolsTests(TestCase):
             tool_resources={}
         )
 
+    def test_clearing_tools_with_brackets_updates_remote(self):
+        assistant = Assistant.objects.create(
+            name='CT', tools=['file_search'], openai_id='asst_ct2', vector_store_id='vs_ct2'
+        )
+
+        update_mock = MagicMock()
+
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(assistants=types.SimpleNamespace(update=update_mock))
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.patch(
+                f'/api/assistants/{assistant.id}/',
+                {'tools': '[]'},
+                format='multipart'
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        assistant.refresh_from_db()
+        self.assertEqual(assistant.tools, [])
+        update_mock.assert_called_with(
+            assistant.openai_id,
+            name='CT',
+            description='',
+            instructions='',
+            model=assistant.model,
+            tools=[],
+            tool_resources={}
+        )
+
 

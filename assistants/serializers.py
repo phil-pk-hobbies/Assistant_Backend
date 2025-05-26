@@ -30,11 +30,15 @@ class AssistantSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
 
     def validate_tools(self, value):
-        """Only allow the optional ``file_search`` tool."""
+        """Filter placeholders and ensure only supported tools are used."""
         allowed = {"file_search"}
-        unknown = [t for t in value if t not in allowed]
+
+        cleaned = [t for t in value if t not in ("", "[]", "null", "undefined")]
+
+        unknown = [t for t in cleaned if t not in allowed]
         if unknown:
             raise serializers.ValidationError(
                 f"Only 'file_search' tool is supported (got: {', '.join(unknown)})"
             )
-        return value
+
+        return cleaned
