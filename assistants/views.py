@@ -108,6 +108,11 @@ class AssistantViewSet(viewsets.ModelViewSet):
                 model=instance.model,
                 tools=[{"type": t} for t in instance.tools],
             )
+            # the OpenAI client can pick up default request parameters from the
+            # environment (e.g. ``OPENAI_DEFAULTS``). If ``temperature`` is
+            # present it will cause an ``unsupported_model`` error for o* models,
+            # so explicitly remove it.
+            update_kwargs.pop("temperature", None)
             if instance.model.startswith("o:"):
                 update_kwargs["reasoning_effort"] = instance.reasoning_effort
             client.beta.assistants.update(instance.openai_id, **update_kwargs)
