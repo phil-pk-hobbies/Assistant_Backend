@@ -4,7 +4,8 @@ REST endpoints
 
 /api/assistants/            CRUD
 /api/messages/              read-only (handy for admin)
-/api/assistants/<id>/chat/  POST {"content": "..."}  – streams the assistant reply
+/api/assistants/<id>/chat/   POST {"content": "..."}  – send a message
+/api/assistants/<id>/reset/  POST                     – clear conversation history
 """
 import os
 from django.http import JsonResponse
@@ -190,3 +191,25 @@ class ChatView(APIView):
 
         # 🔹 8.  Return a normal JSON response
         return JsonResponse({"content": assistant_msg})
+
+
+class ResetThreadView(APIView):
+    """Delete all messages and remote thread for an assistant."""
+
+    def post(self, request, pk):
+        assistant = get_object_or_404(Assistant, pk=pk)
+        thread_id = assistant.thread_id
+
+        if thread_id:
+            import openai
+            try:
+                client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+                client.beta.threads.delete(thread_id)
+            except Exception:
+                pass
+
+        assistant.messages.all().delete()
+        assistant.thread_id = None
+        assistant.save(update_fields=["thread_id"])
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
