@@ -52,6 +52,7 @@ class AssistantViewSet(viewsets.ModelViewSet):
         tool_specs = [{"type": t} for t in tools]
 
         model_name = data.get("model", "gpt-4o")
+        effort = data.get("reasoning_effort", "medium")
         base_kwargs = dict(
             name=data.get("name", ""),
             description=data.get("description") or "",
@@ -59,6 +60,8 @@ class AssistantViewSet(viewsets.ModelViewSet):
             model=model_name,
             tools=tool_specs,
         )
+        if model_name.startswith("o:"):
+            base_kwargs["reasoning_effort"] = effort
 
         # 3️⃣  attach files to the correct tool via tool_resources
         tool_resources = {}
@@ -87,6 +90,7 @@ class AssistantViewSet(viewsets.ModelViewSet):
             tools=tools,
             description=data.get("description") or "",
             model=model_name,
+            reasoning_effort=effort,
         )
 
     def perform_update(self, serializer):
@@ -97,14 +101,16 @@ class AssistantViewSet(viewsets.ModelViewSet):
 
         if instance.openai_id:
             client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-            client.beta.assistants.update(
-                instance.openai_id,
+            update_kwargs = dict(
                 name=instance.name,
                 description=instance.description or "",
                 instructions=instance.instructions or "",
                 model=instance.model,
                 tools=[{"type": t} for t in instance.tools],
             )
+            if instance.model.startswith("o:"):
+                update_kwargs["reasoning_effort"] = instance.reasoning_effort
+            client.beta.assistants.update(instance.openai_id, **update_kwargs)
 
     def perform_destroy(self, instance):
         """Delete the assistant locally and remotely in OpenAI."""

@@ -123,6 +123,47 @@ class CreateAssistantModelTests(TestCase):
 
         self.assertEqual(resp.status_code, 400)
 
+    def test_create_o3_includes_reasoning_effort(self):
+        create_mock = MagicMock(return_value=types.SimpleNamespace(id="asst_o3"))
+
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(assistants=types.SimpleNamespace(create=create_mock))
+                self.files = types.SimpleNamespace(create=MagicMock())
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.post('/api/assistants/', {
+                'name': 'O3',
+                'model': 'o:mini',
+            }, format='json')
+
+        self.assertEqual(resp.status_code, 201)
+        kwargs = create_mock.call_args.kwargs
+        self.assertEqual(kwargs.get('reasoning_effort'), 'medium')
+
+    def test_create_with_custom_reasoning_effort(self):
+        create_mock = MagicMock(return_value=types.SimpleNamespace(id="asst_low"))
+
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(assistants=types.SimpleNamespace(create=create_mock))
+                self.files = types.SimpleNamespace(create=MagicMock())
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.post('/api/assistants/', {
+                'name': 'Low',
+                'model': 'o:mini',
+                'reasoning_effort': 'low',
+            }, format='json')
+
+        self.assertEqual(resp.status_code, 201)
+        kwargs = create_mock.call_args.kwargs
+        self.assertEqual(kwargs.get('reasoning_effort'), 'low')
+
     def test_create_assistant_invalid_model_fails(self):
         class DummyClient:
             def __init__(self):
@@ -212,6 +253,62 @@ class UpdateAssistantNoToolsTests(TestCase):
             model=assistant.model,
             tools=[]
         )
+
+
+class UpdateMiniModelTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_update_o3_includes_reasoning_effort(self):
+        assistant = Assistant.objects.create(
+            name='Mini', instructions='', description='',
+            tools=[], openai_id='asst_mini', model='o:mini'
+        )
+
+        update_mock = MagicMock()
+
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(assistants=types.SimpleNamespace(update=update_mock))
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.patch(
+                f'/api/assistants/{assistant.id}/',
+                {'name': 'Mini2'},
+                format='json'
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        kwargs = update_mock.call_args.kwargs
+        self.assertEqual(kwargs.get('reasoning_effort'), 'medium')
+
+    def test_update_custom_reasoning_effort(self):
+        assistant = Assistant.objects.create(
+            name='Mini', instructions='', description='',
+            tools=[], openai_id='asst_mini', model='o:mini',
+            reasoning_effort='high'
+        )
+
+        update_mock = MagicMock()
+
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(assistants=types.SimpleNamespace(update=update_mock))
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.patch(
+                f'/api/assistants/{assistant.id}/',
+                {'name': 'Mini3', 'reasoning_effort': 'high'},
+                format='json',
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        kwargs = update_mock.call_args.kwargs
+        self.assertEqual(kwargs.get('reasoning_effort'), 'high')
 
 
 class ResetThreadTests(TestCase):
