@@ -321,3 +321,22 @@ class VectorStoreIdView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
         return Response({"vector_store_id": assistant.vector_store_id})
+
+
+class VectorStoreFilesView(APIView):
+    """Return the files for an assistant's vector store."""
+
+    def get(self, request, pk):
+        assistant = get_object_or_404(Assistant, pk=pk)
+        if not assistant.vector_store_id:
+            return Response(
+                {"detail": "No vector store for this assistant."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        import openai
+
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        resp = client.vector_stores.files.list(
+            vector_store_id=assistant.vector_store_id
+        )
+        return Response(resp.data)

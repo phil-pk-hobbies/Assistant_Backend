@@ -510,3 +510,41 @@ class VectorStoreIdViewTests(TestCase):
         self.assertEqual(resp.status_code, 404)
 
 
+class VectorStoreFilesViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_lists_files(self):
+        assistant = Assistant.objects.create(name='VS', vector_store_id='vs_1')
+
+        list_mock = MagicMock(return_value=types.SimpleNamespace(data=[
+            {'id': 'file1', 'filename': 'foo.txt'}
+        ]))
+
+        class DummyClient:
+            def __init__(self):
+                self.vector_stores = types.SimpleNamespace(
+                    files=types.SimpleNamespace(list=list_mock)
+                )
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.get(
+                f'/api/assistants/{assistant.id}/vector-store/files/'
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), [{'id': 'file1', 'filename': 'foo.txt'}])
+        list_mock.assert_called_with(vector_store_id='vs_1')
+
+    def test_missing_vector_store_returns_404(self):
+        assistant = Assistant.objects.create(name='NoVS')
+
+        resp = self.client.get(
+            f'/api/assistants/{assistant.id}/vector-store/files/'
+        )
+
+        self.assertEqual(resp.status_code, 404)
+
+
