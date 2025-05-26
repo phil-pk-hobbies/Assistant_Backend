@@ -53,6 +53,43 @@ class CreateAssistantModelTests(TestCase):
         asst = Assistant.objects.get(name='Test')
         self.assertEqual(asst.model, 'gpt-4')
 
+    def test_create_with_file_search_tool(self):
+        create_mock = MagicMock(return_value=types.SimpleNamespace(id="asst_fs"))
+
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(assistants=types.SimpleNamespace(create=create_mock))
+                self.files = types.SimpleNamespace(create=MagicMock())
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.post('/api/assistants/', {
+                'name': 'FS',
+                'model': 'gpt-4o',
+                'tools': ['file_search'],
+            }, format='json')
+
+        self.assertEqual(resp.status_code, 201)
+        create_mock.assert_called()
+
+    def test_create_with_invalid_tool_fails(self):
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(assistants=types.SimpleNamespace(create=MagicMock()))
+                self.files = types.SimpleNamespace(create=MagicMock())
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.post('/api/assistants/', {
+                'name': 'Bad',
+                'model': 'gpt-4o',
+                'tools': ['code_interpreter'],
+            }, format='json')
+
+        self.assertEqual(resp.status_code, 400)
+
     def test_create_assistant_invalid_model_fails(self):
         class DummyClient:
             def __init__(self):
@@ -77,7 +114,7 @@ class UpdateAssistantTests(TestCase):
     def test_update_assistant_updates_remote(self):
         assistant = Assistant.objects.create(
             name='Orig', instructions='inst', description='desc',
-            tools=['code_interpreter'], openai_id='asst_987'
+            tools=['file_search'], openai_id='asst_987'
         )
 
         update_mock = MagicMock()
@@ -104,7 +141,7 @@ class UpdateAssistantTests(TestCase):
             description='new desc',
             instructions='inst',
             model=assistant.model,
-            tools=[{'type': 'code_interpreter'}]
+            tools=[{'type': 'file_search'}]
         )
 
 
