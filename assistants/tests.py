@@ -353,3 +353,73 @@ class MessageFilterTests(TestCase):
         self.assertEqual(data[0]['assistant'], str(self.asst1.id))
 
 
+class UpdateVectorStoreTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_update_adds_files_to_existing_vector_store(self):
+        assistant = Assistant.objects.create(
+            name='VS', tools=['file_search'], openai_id='asst_vs',
+            vector_store_id='vs_123'
+        )
+
+        file_upload_mock = MagicMock(return_value=types.SimpleNamespace(id='file1'))
+        vs_files_create_mock = MagicMock()
+        update_mock = MagicMock()
+
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(
+                    assistants=types.SimpleNamespace(update=update_mock)
+                )
+                self.vector_stores = types.SimpleNamespace(
+                    files=types.SimpleNamespace(create=vs_files_create_mock)
+                )
+                self.files = types.SimpleNamespace(create=file_upload_mock)
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        file_obj = SimpleUploadedFile('foo.txt', b'data', content_type='text/plain')
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.patch(
+                f'/api/assistants/{assistant.id}/',
+                {'name': 'VS', 'files': [file_obj]},
+                format='multipart'
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        vs_files_create_mock.assert_called_with(vector_store_id='vs_123', file_id='file1')
+
+    def test_update_removes_files_from_vector_store(self):
+        assistant = Assistant.objects.create(
+            name='VS', tools=['file_search'], openai_id='asst_vs',
+            vector_store_id='vs_123'
+        )
+
+        vs_files_delete_mock = MagicMock()
+        update_mock = MagicMock()
+
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(
+                    assistants=types.SimpleNamespace(update=update_mock)
+                )
+                self.vector_stores = types.SimpleNamespace(
+                    files=types.SimpleNamespace(delete=vs_files_delete_mock)
+                )
+                self.files = types.SimpleNamespace(create=MagicMock())
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.patch(
+                f'/api/assistants/{assistant.id}/',
+                {'name': 'VS', 'remove_files': ['fileA']},
+                format='json'
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        vs_files_delete_mock.assert_called_with(vector_store_id='vs_123', file_id='fileA')
+
+

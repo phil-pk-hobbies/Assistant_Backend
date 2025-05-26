@@ -31,8 +31,9 @@ class Assistant(models.Model):
         default="medium",
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    openai_id  = models.CharField(max_length=40, blank=True, null=True)  # asst_…
-    thread_id  = models.CharField(max_length=40, blank=True, null=True)  # thr_…
+    openai_id  = models.CharField(max_length=40, blank=True, null=True)  # asst_...
+    thread_id  = models.CharField(max_length=40, blank=True, null=True)  # thr_...
+    vector_store_id = models.CharField(max_length=40, blank=True, null=True)
 
     def __str__(self) -> str:
         return self.name
