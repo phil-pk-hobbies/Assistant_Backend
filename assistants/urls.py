@@ -6,6 +6,7 @@ from .views import (
     ChatView,
     ResetThreadView,
     VectorStoreIdView,
+    VectorStoreFilesView,
 )
 
 router = DefaultRouter()
@@ -20,5 +21,10 @@ urlpatterns = [
         'assistants/<uuid:pk>/vector-store/',
         VectorStoreIdView.as_view(),
         name='vector-store',
+    ),
+    path(
+        'assistants/<uuid:pk>/vector-store/files/',
+        VectorStoreFilesView.as_view(),
+        name='vector-store-files',
     ),
 ]
