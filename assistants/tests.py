@@ -240,3 +240,19 @@ class ResetThreadTests(TestCase):
         delete_mock.assert_called_with('thr_123')
 
 
+class MessageFilterTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.asst1 = Assistant.objects.create(name='A1')
+        self.asst2 = Assistant.objects.create(name='A2')
+        Message.objects.create(assistant=self.asst1, role='user', content='hi1')
+        Message.objects.create(assistant=self.asst2, role='user', content='hi2')
+
+    def test_filter_by_assistant(self):
+        resp = self.client.get('/api/messages/', {'assistant': self.asst1.id})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['assistant'], str(self.asst1.id))
+
+

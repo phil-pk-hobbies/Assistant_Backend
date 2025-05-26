@@ -123,8 +123,15 @@ class AssistantViewSet(viewsets.ModelViewSet):
 #  Messages (read-only)
 # ──────────────────────────────────────────────────────────────────────────────
 class MessageViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Message.objects.all()
     serializer_class = MessageSerializer
+
+    def get_queryset(self):
+        """Optionally filter messages by assistant via ?assistant=<uuid>."""
+        qs = Message.objects.all()
+        asst_id = self.request.query_params.get("assistant")
+        if asst_id:
+            qs = qs.filter(assistant_id=asst_id)
+        return qs
 
 
 # ──────────────────────────────────────────────────────────────────────────────
