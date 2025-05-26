@@ -99,6 +99,11 @@ class AssistantViewSet(viewsets.ModelViewSet):
 
         instance = serializer.save()
 
+        # ensure the stored instance always has a valid reasoning_effort
+        if not instance.reasoning_effort:
+            instance.reasoning_effort = "medium"
+            instance.save(update_fields=["reasoning_effort"])
+
         if instance.openai_id:
             client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
             update_kwargs = dict(
