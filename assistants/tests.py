@@ -91,3 +91,40 @@ class UpdateAssistantTests(TestCase):
             tools=[{'type': 'code_interpreter'}]
         )
 
+
+class UpdateAssistantNoToolsTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_update_assistant_without_tools(self):
+        assistant = Assistant.objects.create(
+            name='Orig', instructions='', description='',
+            tools=[], openai_id='asst_empty'
+        )
+
+        update_mock = MagicMock()
+
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(assistants=types.SimpleNamespace(update=update_mock))
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.patch(
+                f'/api/assistants/{assistant.id}/',
+                {'name': 'NewName'},
+                format='json'
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        update_mock.assert_called_with(
+            assistant.openai_id,
+            name='NewName',
+            description='',
+            instructions='',
+            model=assistant.model,
+            tools=[]
+        )
+
+

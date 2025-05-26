@@ -48,7 +48,7 @@ class AssistantViewSet(viewsets.ModelViewSet):
             tools = data.getlist("tools") if "tools" in data else []
         else:
             tools = data.get("tools", []) or []
-        tool_specs = [{"type": t} for t in tools] or None
+        tool_specs = [{"type": t} for t in tools]
 
         model_name = data.get("model", "gpt-4o")
         base_kwargs = dict(
@@ -95,7 +95,7 @@ class AssistantViewSet(viewsets.ModelViewSet):
                 description=instance.description or "",
                 instructions=instance.instructions or "",
                 model=instance.model,
-                tools=[{"type": t} for t in instance.tools] or None,
+                tools=[{"type": t} for t in instance.tools],
             )
 
     def perform_destroy(self, instance):
