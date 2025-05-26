@@ -65,6 +65,7 @@ class AssistantViewSet(viewsets.ModelViewSet):
 
         # 3️⃣  attach files to the correct tool via tool_resources
         tool_resources = {}
+        vector_store_id = None
         if uploaded_file_ids:
             if "code_interpreter" in tools:
                 tool_resources["code_interpreter"] = {"file_ids": uploaded_file_ids}
@@ -73,6 +74,7 @@ class AssistantViewSet(viewsets.ModelViewSet):
                 vector_store = client.vector_stores.create(
                     file_ids=uploaded_file_ids
                 )
+                vector_store_id = vector_store.id
                 tool_resources["file_search"] = {
                     "vector_store_ids": [vector_store.id]
                 }
@@ -91,6 +93,7 @@ class AssistantViewSet(viewsets.ModelViewSet):
             description=data.get("description") or "",
             model=model_name,
             reasoning_effort=effort,
+            vector_store_id=vector_store_id,
         )
 
     def perform_update(self, serializer):
@@ -113,6 +116,47 @@ class AssistantViewSet(viewsets.ModelViewSet):
                 model=instance.model,
                 tools=[{"type": t} for t in instance.tools],
             )
+
+            uploaded_file_ids: list[str] = []
+            for f in self.request.FILES.getlist("files", []):
+                resp = client.files.create(
+                    file=(f.name, f, f.content_type),
+                    purpose="assistants",
+                )
+                uploaded_file_ids.append(resp.id)
+
+            tool_resources = None
+            if uploaded_file_ids and "file_search" in instance.tools:
+                if instance.vector_store_id:
+                    for file_id in uploaded_file_ids:
+                        client.vector_stores.files.create(
+                            vector_store_id=instance.vector_store_id,
+                            file_id=file_id,
+                        )
+                    tool_resources = {
+                        "file_search": {"vector_store_ids": [instance.vector_store_id]}
+                    }
+                else:
+                    vs = client.vector_stores.create(file_ids=uploaded_file_ids)
+                    instance.vector_store_id = vs.id
+                    instance.save(update_fields=["vector_store_id"])
+                    tool_resources = {
+                        "file_search": {"vector_store_ids": [vs.id]}
+                    }
+
+            remove_files = []
+            if hasattr(self.request.data, "getlist"):
+                remove_files = self.request.data.getlist("remove_files")
+            else:
+                remove_files = self.request.data.get("remove_files", []) or []
+
+            if remove_files and instance.vector_store_id:
+                for fid in remove_files:
+                    client.vector_stores.files.delete(
+                        vector_store_id=instance.vector_store_id,
+                        file_id=fid,
+                    )
+
             # the OpenAI client can pick up default request parameters from the
             # environment (e.g. ``OPENAI_DEFAULTS``). If ``temperature`` is
             # present it will cause an ``unsupported_model`` error for o* models,
@@ -120,6 +164,8 @@ class AssistantViewSet(viewsets.ModelViewSet):
             update_kwargs.pop("temperature", None)
             if instance.model.startswith("o"):
                 update_kwargs["reasoning_effort"] = instance.reasoning_effort
+            if tool_resources:
+                update_kwargs["tool_resources"] = tool_resources
             client.beta.assistants.update(instance.openai_id, **update_kwargs)
 
     def perform_destroy(self, instance):
