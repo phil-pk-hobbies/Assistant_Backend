@@ -65,8 +65,15 @@ class AssistantViewSet(viewsets.ModelViewSet):
         if uploaded_file_ids:
             if "code_interpreter" in tools:
                 tool_resources["code_interpreter"] = {"file_ids": uploaded_file_ids}
+            if "file_search" in tools:
+                # create a vector store from the uploaded files and attach it
+                vector_store = client.beta.vector_stores.create(
+                    file_ids=uploaded_file_ids
+                )
+                tool_resources["file_search"] = {
+                    "vector_store_ids": [vector_store.id]
+                }
             # add other tool-resource mappings here if you support them
-            # (e.g. vector_store IDs for file_search)
 
         if tool_resources:
             base_kwargs["tool_resources"] = tool_resources

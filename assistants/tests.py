@@ -1,5 +1,6 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
+from django.core.files.uploadedfile import SimpleUploadedFile
 from .models import Assistant, Message
 from unittest.mock import MagicMock, patch
 import types
@@ -72,6 +73,38 @@ class CreateAssistantModelTests(TestCase):
 
         self.assertEqual(resp.status_code, 201)
         create_mock.assert_called()
+
+    def test_file_search_with_files_creates_vector_store(self):
+        create_mock = MagicMock(return_value=types.SimpleNamespace(id="asst_up"))
+        file_create_mock = MagicMock(return_value=types.SimpleNamespace(id="file_1"))
+        vector_store_mock = MagicMock(return_value=types.SimpleNamespace(id="vs_1"))
+
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(
+                    assistants=types.SimpleNamespace(create=create_mock),
+                    vector_stores=types.SimpleNamespace(create=vector_store_mock),
+                )
+                self.files = types.SimpleNamespace(create=file_create_mock)
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        file_obj = SimpleUploadedFile("foo.txt", b"data", content_type="text/plain")
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.post(
+                '/api/assistants/',
+                {
+                    'name': 'FSF',
+                    'model': 'gpt-4o',
+                    'tools': ['file_search'],
+                    'files': [file_obj],
+                },
+                format='multipart'
+            )
+
+        self.assertEqual(resp.status_code, 201)
+        vector_store_mock.assert_called()
 
     def test_create_with_invalid_tool_fails(self):
         class DummyClient:
