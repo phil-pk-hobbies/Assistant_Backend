@@ -1,6 +1,6 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
-from .models import Assistant
+from .models import Assistant, Message
 from unittest.mock import MagicMock, patch
 import types
 import sys
@@ -142,5 +142,31 @@ class UpdateAssistantNoToolsTests(TestCase):
             model=assistant.model,
             tools=[]
         )
+
+
+class ResetThreadTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_reset_thread_deletes_remote_and_messages(self):
+        assistant = Assistant.objects.create(name='Test', thread_id='thr_123')
+        Message.objects.create(assistant=assistant, role='user', content='hi')
+
+        delete_mock = MagicMock()
+
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(threads=types.SimpleNamespace(delete=delete_mock))
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.post(f'/api/assistants/{assistant.id}/reset/')
+
+        self.assertEqual(resp.status_code, 204)
+        assistant.refresh_from_db()
+        self.assertIsNone(assistant.thread_id)
+        self.assertFalse(Message.objects.filter(assistant=assistant).exists())
+        delete_mock.assert_called_with('thr_123')
 
 
