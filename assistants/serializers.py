@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Assistant, Message
+from .models import Assistant, Message, ALLOWED_MODELS
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -13,7 +13,7 @@ class AssistantSerializer(serializers.ModelSerializer):
     tools = serializers.ListField(child=serializers.CharField(),
                                   required=False,  # allow it to be omitted
                                   default=list)
-    model = serializers.CharField(default="gpt-4o")
+    model = serializers.ChoiceField(choices=ALLOWED_MODELS, default="gpt-4o")
 
     messages = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
 

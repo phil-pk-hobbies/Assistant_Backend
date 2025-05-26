@@ -4,6 +4,11 @@ SQLite-backed models for assistants and their messages.
 import uuid
 from django.db import models
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Allowed assistant models
+# ─────────────────────────────────────────────────────────────────────────────
+ALLOWED_MODELS = ["gpt-4", "gpt-4o", "o1-mini", "o3-mini"]
+
 
 class Assistant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -11,7 +16,8 @@ class Assistant(models.Model):
     description = models.TextField(blank=True)
     instructions = models.TextField(blank=True)
     tools = models.JSONField(default=list, help_text="e.g. ['code_interpreter']")
-    model = models.CharField(max_length=40, default="gpt-4o")
+    MODEL_CHOICES = [(m, m) for m in ALLOWED_MODELS]
+    model = models.CharField(max_length=40, default="gpt-4o", choices=MODEL_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
     openai_id  = models.CharField(max_length=40, blank=True, null=True)  # asst_…
     thread_id  = models.CharField(max_length=40, blank=True, null=True)  # thr_…
