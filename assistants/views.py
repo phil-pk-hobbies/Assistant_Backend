@@ -81,6 +81,23 @@ class AssistantViewSet(viewsets.ModelViewSet):
             model=model_name,
         )
 
+    def perform_update(self, serializer):
+        """Update both the local and remote assistant."""
+        import openai
+
+        instance = serializer.save()
+
+        if instance.openai_id:
+            client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            client.beta.assistants.update(
+                instance.openai_id,
+                name=instance.name,
+                description=instance.description or "",
+                instructions=instance.instructions or "",
+                model=instance.model,
+                tools=[{"type": t} for t in instance.tools] or None,
+            )
+
     def perform_destroy(self, instance):
         """Delete the assistant locally and remotely in OpenAI."""
         import openai
