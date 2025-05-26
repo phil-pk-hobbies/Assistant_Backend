@@ -45,10 +45,8 @@ class AssistantViewSet(viewsets.ModelViewSet):
             uploaded_file_ids.append(resp.id)
 
         # 2️⃣  build kwargs common to every assistant
-        if hasattr(data, "getlist"):
-            tools = data.getlist("tools") if "tools" in data else []
-        else:
-            tools = data.get("tools", []) or []
+        raw = data.getlist("tools") if hasattr(data, "getlist") else data.get("tools", [])
+        tools = [t for t in raw if t not in ("", "[]", "null", "undefined")] if raw else []
         tool_specs = [{"type": t} for t in tools]
 
         model_name = data.get("model", "gpt-4o")
@@ -100,7 +98,19 @@ class AssistantViewSet(viewsets.ModelViewSet):
         """Update both the local and remote assistant."""
         import openai
 
-        instance = serializer.save()
+        data = self.request.data
+        if hasattr(data, "getlist"):
+            raw = data.getlist("tools") if "tools" in data else None
+        else:
+            raw = data.get("tools") if "tools" in data else None
+
+        if raw is not None:
+            cleaned = [t for t in (raw or []) if t not in ("", "[]", "null", "undefined")]
+            instance = serializer.save(tools=cleaned)
+            instance.tools = cleaned
+            instance.save(update_fields=["tools"])
+        else:
+            instance = serializer.save()
 
         # ensure the stored instance always has a valid reasoning_effort
         if not instance.reasoning_effort:
@@ -109,13 +119,18 @@ class AssistantViewSet(viewsets.ModelViewSet):
 
         if instance.openai_id:
             client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-            update_kwargs = dict(
-                name=instance.name,
-                description=instance.description or "",
-                instructions=instance.instructions or "",
-                model=instance.model,
-                tools=[{"type": t} for t in instance.tools],
-            )
+            update_kwargs = {
+                "name": instance.name,
+                "description": instance.description or "",
+                "instructions": instance.instructions or "",
+                "model": instance.model,
+            }
+
+            if instance.tools:
+                update_kwargs["tools"] = [{"type": t} for t in instance.tools]
+            else:
+                update_kwargs["tools"] = []
+                update_kwargs["tool_resources"] = {}
 
             uploaded_file_ids: list[str] = []
             for f in self.request.FILES.getlist("files", []):
