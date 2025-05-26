@@ -53,3 +53,41 @@ class CreateAssistantModelTests(TestCase):
         asst = Assistant.objects.get(name='Test')
         self.assertEqual(asst.model, 'gpt-3.5-turbo')
 
+
+class UpdateAssistantTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_update_assistant_updates_remote(self):
+        assistant = Assistant.objects.create(
+            name='Orig', instructions='inst', description='desc',
+            tools=['code_interpreter'], openai_id='asst_987'
+        )
+
+        update_mock = MagicMock()
+
+        class DummyClient:
+            def __init__(self):
+                self.beta = types.SimpleNamespace(assistants=types.SimpleNamespace(update=update_mock))
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.patch(
+                f'/api/assistants/{assistant.id}/',
+                {'name': 'New', 'description': 'new desc'},
+                format='json'
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        assistant.refresh_from_db()
+        self.assertEqual(assistant.name, 'New')
+        update_mock.assert_called_with(
+            assistant.openai_id,
+            name='New',
+            description='new desc',
+            instructions='inst',
+            model=assistant.model,
+            tools=[{'type': 'code_interpreter'}]
+        )
+
