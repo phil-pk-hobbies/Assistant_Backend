@@ -13,12 +13,25 @@ import time
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.viewsets import GenericViewSet
+from rest_framework.mixins import CreateModelMixin, ListModelMixin, DestroyModelMixin
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from .permissions import AssistantPermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
-from .models import Assistant, Message
-from .serializers import AssistantSerializer, MessageSerializer
+from .models import (
+    Assistant,
+    Message,
+    AssistantUserAccess,
+    AssistantDepartmentAccess,
+)
+from .serializers import (
+    AssistantSerializer,
+    MessageSerializer,
+    AssistantShareUserSerializer,
+    AssistantShareDeptSerializer,
+)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -428,4 +441,103 @@ class VectorStoreFileView(APIView):
             file_id=file_id,
         )
 
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Sharing
+# ──────────────────────────────────────────────────────────────────────────────
+class AssistantShareMixin:
+    permission_classes = [IsAuthenticated]
+
+    def get_assistant(self):
+        return get_object_or_404(Assistant, pk=self.kwargs["assistant_pk"])
+
+    def _check_owner(self, request, assistant):
+        if assistant.owner != request.user and not request.user.is_staff:
+            raise PermissionDenied("Only owner or admin may share")
+
+
+class AssistantUserShareViewSet(
+    AssistantShareMixin, GenericViewSet, CreateModelMixin, ListModelMixin, DestroyModelMixin
+):
+    serializer_class = AssistantShareUserSerializer
+
+    def get_queryset(self):
+        return AssistantUserAccess.objects.filter(assistant=self.get_assistant())
+
+    def list(self, request, *args, **kwargs):
+        assistant = self.get_assistant()
+        self._check_owner(request, assistant)
+        return super().list(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
+        assistant = self.get_assistant()
+        self._check_owner(request, assistant)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+        if assistant.owner_id == user.id:
+            raise ValidationError("Cannot modify owner permissions")
+        obj, created = AssistantUserAccess.objects.update_or_create(
+            assistant=assistant,
+            user=user,
+            defaults={"permission": serializer.validated_data["permission"]},
+        )
+        out = self.get_serializer(obj)
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(out.data, status=status_code)
+
+    def destroy(self, request, pk=None, *args, **kwargs):
+        assistant = self.get_assistant()
+        self._check_owner(request, assistant)
+        if assistant.owner_id == int(pk):
+            return Response(
+                {"detail": "Owner permission cannot be removed"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        access = get_object_or_404(
+            AssistantUserAccess, assistant=assistant, user_id=pk
+        )
+        access.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AssistantDeptShareViewSet(
+    AssistantShareMixin, GenericViewSet, CreateModelMixin, ListModelMixin, DestroyModelMixin
+):
+    serializer_class = AssistantShareDeptSerializer
+
+    def get_queryset(self):
+        return AssistantDepartmentAccess.objects.filter(
+            assistant=self.get_assistant()
+        )
+
+    def list(self, request, *args, **kwargs):
+        assistant = self.get_assistant()
+        self._check_owner(request, assistant)
+        return super().list(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
+        assistant = self.get_assistant()
+        self._check_owner(request, assistant)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        dept = serializer.validated_data["department"]
+        obj, created = AssistantDepartmentAccess.objects.update_or_create(
+            assistant=assistant,
+            department=dept,
+            defaults={"permission": serializer.validated_data["permission"]},
+        )
+        out = self.get_serializer(obj)
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(out.data, status=status_code)
+
+    def destroy(self, request, pk=None, *args, **kwargs):
+        assistant = self.get_assistant()
+        self._check_owner(request, assistant)
+        access = get_object_or_404(
+            AssistantDepartmentAccess, assistant=assistant, department_id=pk
+        )
+        access.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

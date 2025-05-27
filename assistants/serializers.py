@@ -1,5 +1,12 @@
 from rest_framework import serializers
-from .models import Assistant, Message, ALLOWED_MODELS, REASONING_EFFORT_CHOICES
+from .models import (
+    Assistant,
+    Message,
+    AssistantUserAccess,
+    AssistantDepartmentAccess,
+    ALLOWED_MODELS,
+    REASONING_EFFORT_CHOICES,
+)
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -56,3 +63,15 @@ class AssistantSerializer(serializers.ModelSerializer):
         if not request or not request.user:
             return None
         return obj.permission_for(request.user)
+
+
+class AssistantShareUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssistantUserAccess
+        fields = ("user", "permission")
+
+
+class AssistantShareDeptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssistantDepartmentAccess
+        fields = ("department", "permission")
