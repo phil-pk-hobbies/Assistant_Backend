@@ -60,3 +60,21 @@ curl -X DELETE http://localhost:8000/api/departments/1/ \
 ```
 
 Write-locking of the entire API will arrive in a later ticket.
+
+## Creating users
+
+```
+curl -X POST http://localhost:8000/api/users/ \
+  -H "Authorization: Bearer $ADMIN" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "jdoe", "initial_password": "Start!234", "first_name": "John", "last_name": "Doe", "department": 1}'
+```
+
+## Resetting passwords
+
+```
+curl -X POST http://localhost:8000/api/users/42/reset_password/ \
+  -H "Authorization: Bearer $ADMIN" \
+  -H "Content-Type: application/json" \
+  -d '{"new_password": "Temp!888"}'
+```
