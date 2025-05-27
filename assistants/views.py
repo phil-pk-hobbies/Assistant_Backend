@@ -362,3 +362,25 @@ class VectorStoreFilesView(APIView):
             })
 
         return Response(files)
+
+
+class VectorStoreFileView(APIView):
+    """Delete a single file from an assistant's vector store."""
+
+    def delete(self, request, pk, file_id):
+        assistant = get_object_or_404(Assistant, pk=pk)
+        if not assistant.vector_store_id:
+            return Response(
+                {"detail": "No vector store for this assistant."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        import openai
+
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        client.vector_stores.files.delete(
+            vector_store_id=assistant.vector_store_id,
+            file_id=file_id,
+        )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
