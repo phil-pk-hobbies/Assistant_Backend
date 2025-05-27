@@ -104,6 +104,8 @@ class AssistantViewSet(viewsets.ModelViewSet):
         else:
             raw = data.get("tools") if "tools" in data else None
 
+        old_tools = list(serializer.instance.tools) if serializer.instance else []
+
         if raw is not None:
             cleaned = [t for t in (raw or []) if t not in ("", "[]", "null", "undefined")]
             instance = serializer.save(tools=cleaned)
@@ -171,6 +173,26 @@ class AssistantViewSet(viewsets.ModelViewSet):
                         vector_store_id=instance.vector_store_id,
                         file_id=fid,
                     )
+
+            # If file_search has been removed, clear the vector store files
+            if (
+                "file_search" in old_tools
+                and "file_search" not in instance.tools
+                and instance.vector_store_id
+            ):
+                try:
+                    resp = client.vector_stores.files.list(
+                        vector_store_id=instance.vector_store_id
+                    )
+                    for f in resp.data:
+                        file_id = getattr(f, "file_id", None) or getattr(f, "id", None)
+                        if file_id:
+                            client.vector_stores.files.delete(
+                                vector_store_id=instance.vector_store_id,
+                                file_id=file_id,
+                            )
+                except Exception:
+                    pass
 
             # the OpenAI client can pick up default request parameters from the
             # environment (e.g. ``OPENAI_DEFAULTS``). If ``temperature`` is
