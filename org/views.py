@@ -1,0 +1,22 @@
+from rest_framework import viewsets
+from rest_framework.permissions import AllowAny, IsAdminUser
+from .models import Department
+from .serializers import DepartmentSerializer
+
+
+class DepartmentViewSet(viewsets.ModelViewSet):
+    queryset = Department.objects.all()
+    serializer_class = DepartmentSerializer
+
+    permission_classes_by_action = {
+        'list': [AllowAny],
+        'retrieve': [AllowAny],
+        'create': [IsAdminUser],
+        'update': [IsAdminUser],
+        'partial_update': [IsAdminUser],
+        'destroy': [IsAdminUser],
+    }
+
+    def get_permissions(self):
+        perms = self.permission_classes_by_action.get(self.action, [AllowAny])
+        return [p() for p in perms]
