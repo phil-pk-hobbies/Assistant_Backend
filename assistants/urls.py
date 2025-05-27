@@ -7,6 +7,7 @@ from .views import (
     ResetThreadView,
     VectorStoreIdView,
     VectorStoreFilesView,
+    VectorStoreFileView,
 )
 
 router = DefaultRouter()
@@ -26,5 +27,10 @@ urlpatterns = [
         'assistants/<uuid:pk>/vector-store/files/',
         VectorStoreFilesView.as_view(),
         name='vector-store-files',
+    ),
+    path(
+        'assistants/<uuid:pk>/vector-store/files/<str:file_id>/',
+        VectorStoreFileView.as_view(),
+        name='vector-store-file',
     ),
 ]

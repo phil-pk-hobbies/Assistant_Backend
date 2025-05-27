@@ -551,3 +551,38 @@ class VectorStoreFilesViewTests(TestCase):
         self.assertEqual(resp.status_code, 404)
 
 
+class VectorStoreFileViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_delete_file(self):
+        assistant = Assistant.objects.create(name='VS', vector_store_id='vs_1')
+
+        delete_mock = MagicMock()
+
+        class DummyClient:
+            def __init__(self):
+                self.vector_stores = types.SimpleNamespace(
+                    files=types.SimpleNamespace(delete=delete_mock)
+                )
+
+        dummy_openai = types.SimpleNamespace(OpenAI=lambda api_key=None: DummyClient())
+
+        with patch.dict(sys.modules, {'openai': dummy_openai}):
+            resp = self.client.delete(
+                f'/api/assistants/{assistant.id}/vector-store/files/fileA/'
+            )
+
+        self.assertEqual(resp.status_code, 204)
+        delete_mock.assert_called_with(vector_store_id='vs_1', file_id='fileA')
+
+    def test_delete_file_missing_vector_store_returns_404(self):
+        assistant = Assistant.objects.create(name='VS')
+
+        resp = self.client.delete(
+            f'/api/assistants/{assistant.id}/vector-store/files/fileA/'
+        )
+
+        self.assertEqual(resp.status_code, 404)
+
+
