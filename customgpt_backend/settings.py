@@ -38,6 +38,8 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'org',            # accounts depends on this app
+    'accounts',       # must come before django.contrib.admin
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -46,9 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'assistants',
-    'accounts',
     'users',
-    'org',
 ]
 AUTH_USER_MODEL = 'accounts.User'
 
