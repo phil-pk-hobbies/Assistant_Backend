@@ -339,4 +339,22 @@ class VectorStoreFilesView(APIView):
         resp = client.vector_stores.files.list(
             vector_store_id=assistant.vector_store_id
         )
-        return Response(resp.data)
+
+        files = []
+        for f in resp.data:
+            file_id = getattr(f, "file_id", None)
+            filename = getattr(f, "filename", None)
+
+            if not filename and file_id:
+                try:
+                    file_info = client.files.retrieve(file_id)
+                    filename = getattr(file_info, "filename", None)
+                except Exception:
+                    filename = None
+
+            files.append({
+                "id": getattr(f, "id", None),
+                "filename": filename,
+            })
+
+        return Response(files)
