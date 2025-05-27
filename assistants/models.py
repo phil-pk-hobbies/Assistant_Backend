@@ -3,6 +3,8 @@ SQLite-backed models for assistants and their messages.
 """
 import uuid
 from django.db import models
+from django.conf import settings
+from .managers import AssistantQuerySet
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Allowed assistant models
@@ -17,9 +19,19 @@ REASONING_EFFORT_CHOICES = [
 ]
 
 
+class AssistantPermission(models.TextChoices):
+    USE = "use", "Use"
+    EDIT = "edit", "Edit"
+
+
 class Assistant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=120)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="owned_assistants",
+        on_delete=models.CASCADE,
+    )
     description = models.TextField(blank=True)
     instructions = models.TextField(blank=True)
     tools = models.JSONField(default=list, help_text="e.g. ['code_interpreter']")
@@ -35,8 +47,45 @@ class Assistant(models.Model):
     thread_id  = models.CharField(max_length=40, blank=True, null=True)  # thr_...
     vector_store_id = models.CharField(max_length=40, blank=True, null=True)
 
+    objects = AssistantQuerySet.as_manager()
+
     def __str__(self) -> str:
         return self.name
+
+    def permission_for(self, user):
+        if user == self.owner:
+            return AssistantPermission.EDIT
+        perms = []
+        ua = self.user_access.filter(user=user).first()
+        if ua:
+            perms.append(ua.permission)
+        if getattr(user, "department_id", None):
+            da = self.dept_access.filter(department_id=user.department_id).first()
+            if da:
+                perms.append(da.permission)
+        if AssistantPermission.EDIT in perms:
+            return AssistantPermission.EDIT
+        if AssistantPermission.USE in perms:
+            return AssistantPermission.USE
+        return None
+
+
+class AssistantUserAccess(models.Model):
+    assistant = models.ForeignKey(Assistant, related_name="user_access", on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="assistant_access", on_delete=models.CASCADE)
+    permission = models.CharField(max_length=4, choices=AssistantPermission.choices)
+
+    class Meta:
+        unique_together = ("assistant", "user")
+
+
+class AssistantDepartmentAccess(models.Model):
+    assistant = models.ForeignKey(Assistant, related_name="dept_access", on_delete=models.CASCADE)
+    department = models.ForeignKey('org.Department', related_name="assistant_access", on_delete=models.CASCADE)
+    permission = models.CharField(max_length=4, choices=AssistantPermission.choices)
+
+    class Meta:
+        unique_together = ("assistant", "department")
 
 
 class Message(models.Model):
