@@ -1,6 +1,7 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.contrib.auth import get_user_model
 from .models import Assistant, Message
 from unittest.mock import MagicMock, patch
 import types
@@ -9,10 +10,11 @@ import sys
 class DeleteAssistantTests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.owner = get_user_model().objects.create_user(username="own", password="pw")
 
     def test_delete_assistant_removes_remote(self):
         # create a dummy assistant
-        assistant = Assistant.objects.create(name="Test", openai_id="asst_123")
+        assistant = Assistant.objects.create(name="Test", openai_id="asst_123", owner=self.owner)
 
         delete_mock = MagicMock()
 
@@ -33,6 +35,7 @@ class DeleteAssistantTests(TestCase):
 class CreateAssistantModelTests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.owner = get_user_model().objects.create_user(username="own", password="pw")
 
     def test_create_assistant_stores_model(self):
         create_mock = MagicMock(return_value=types.SimpleNamespace(id="asst_999"))
@@ -184,11 +187,12 @@ class CreateAssistantModelTests(TestCase):
 class UpdateAssistantTests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.owner = get_user_model().objects.create_user(username="own", password="pw")
 
     def test_update_assistant_updates_remote(self):
         assistant = Assistant.objects.create(
             name='Orig', instructions='inst', description='desc',
-            tools=['file_search'], openai_id='asst_987'
+            tools=['file_search'], openai_id='asst_987', owner=self.owner
         )
 
         update_mock = MagicMock()
@@ -226,7 +230,7 @@ class UpdateAssistantNoToolsTests(TestCase):
     def test_update_assistant_without_tools(self):
         assistant = Assistant.objects.create(
             name='Orig', instructions='', description='',
-            tools=[], openai_id='asst_empty'
+            tools=[], openai_id='asst_empty', owner=self.owner
         )
 
         update_mock = MagicMock()
@@ -262,7 +266,7 @@ class UpdateMiniModelTests(TestCase):
     def test_update_o3_includes_reasoning_effort(self):
         assistant = Assistant.objects.create(
             name='Mini', instructions='', description='',
-            tools=[], openai_id='asst_mini', model='o:mini'
+            tools=[], openai_id='asst_mini', model='o:mini', owner=self.owner
         )
 
         update_mock = MagicMock()
@@ -288,7 +292,7 @@ class UpdateMiniModelTests(TestCase):
         assistant = Assistant.objects.create(
             name='Mini', instructions='', description='',
             tools=[], openai_id='asst_mini', model='o:mini',
-            reasoning_effort='high'
+            reasoning_effort='high', owner=self.owner
         )
 
         update_mock = MagicMock()
@@ -314,9 +318,10 @@ class UpdateMiniModelTests(TestCase):
 class ResetThreadTests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.owner = get_user_model().objects.create_user(username="own", password="pw")
 
     def test_reset_thread_deletes_remote_and_messages(self):
-        assistant = Assistant.objects.create(name='Test', thread_id='thr_123')
+        assistant = Assistant.objects.create(name='Test', thread_id='thr_123', owner=self.owner)
         Message.objects.create(assistant=assistant, role='user', content='hi')
 
         delete_mock = MagicMock()
@@ -340,8 +345,9 @@ class ResetThreadTests(TestCase):
 class MessageFilterTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.asst1 = Assistant.objects.create(name='A1')
-        self.asst2 = Assistant.objects.create(name='A2')
+        self.owner = get_user_model().objects.create_user(username='own', password='pw')
+        self.asst1 = Assistant.objects.create(name='A1', owner=self.owner)
+        self.asst2 = Assistant.objects.create(name='A2', owner=self.owner)
         Message.objects.create(assistant=self.asst1, role='user', content='hi1')
         Message.objects.create(assistant=self.asst2, role='user', content='hi2')
 
@@ -356,11 +362,12 @@ class MessageFilterTests(TestCase):
 class UpdateVectorStoreTests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.owner = get_user_model().objects.create_user(username='own', password='pw')
 
     def test_update_adds_files_to_existing_vector_store(self):
         assistant = Assistant.objects.create(
             name='VS', tools=['file_search'], openai_id='asst_vs',
-            vector_store_id='vs_123'
+            vector_store_id='vs_123', owner=self.owner
         )
 
         file_upload_mock = MagicMock(return_value=types.SimpleNamespace(id='file1'))
@@ -394,7 +401,7 @@ class UpdateVectorStoreTests(TestCase):
     def test_update_removes_files_from_vector_store(self):
         assistant = Assistant.objects.create(
             name='VS', tools=['file_search'], openai_id='asst_vs',
-            vector_store_id='vs_123'
+            vector_store_id='vs_123', owner=self.owner
         )
 
         vs_files_delete_mock = MagicMock()
@@ -426,11 +433,12 @@ class UpdateVectorStoreTests(TestCase):
 class ClearToolsTests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.owner = get_user_model().objects.create_user(username='own', password='pw')
 
     def test_clearing_tools_updates_remote(self):
         assistant = Assistant.objects.create(
             name='CT', tools=['file_search'], openai_id='asst_ct', vector_store_id='vs_ct'
-        )
+        , owner=self.owner)
 
         update_mock = MagicMock()
 
@@ -463,7 +471,7 @@ class ClearToolsTests(TestCase):
     def test_clearing_tools_with_brackets_updates_remote(self):
         assistant = Assistant.objects.create(
             name='CT', tools=['file_search'], openai_id='asst_ct2', vector_store_id='vs_ct2'
-        )
+        , owner=self.owner)
 
         update_mock = MagicMock()
 
@@ -497,11 +505,12 @@ class ClearToolsTests(TestCase):
 class DisableFileSearchClearsVectorStoreFilesTests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.owner = get_user_model().objects.create_user(username='own', password='pw')
 
     def test_disabling_file_search_removes_vector_store_files(self):
         assistant = Assistant.objects.create(
             name='CT', tools=['file_search'], openai_id='asst_ct', vector_store_id='vs_ct'
-        )
+        , owner=self.owner)
 
         list_mock = MagicMock(return_value=types.SimpleNamespace(data=[{'id': 'src_1'}, {'id': 'src_2'}]))
         delete_mock = MagicMock()
@@ -531,15 +540,16 @@ class DisableFileSearchClearsVectorStoreFilesTests(TestCase):
 class VectorStoreIdViewTests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.owner = get_user_model().objects.create_user(username='own', password='pw')
 
     def test_returns_vector_store_id(self):
-        assistant = Assistant.objects.create(name='VS', vector_store_id='vs_1')
+        assistant = Assistant.objects.create(name='VS', vector_store_id='vs_1', owner=self.owner)
         resp = self.client.get(f'/api/assistants/{assistant.id}/vector-store/')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()['vector_store_id'], 'vs_1')
 
     def test_missing_vector_store_returns_404(self):
-        assistant = Assistant.objects.create(name='NoVS')
+        assistant = Assistant.objects.create(name='NoVS', owner=self.owner)
         resp = self.client.get(f'/api/assistants/{assistant.id}/vector-store/')
         self.assertEqual(resp.status_code, 404)
 
@@ -547,9 +557,10 @@ class VectorStoreIdViewTests(TestCase):
 class VectorStoreFilesViewTests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.owner = get_user_model().objects.create_user(username='own', password='pw')
 
     def test_lists_files(self):
-        assistant = Assistant.objects.create(name='VS', vector_store_id='vs_1')
+        assistant = Assistant.objects.create(name='VS', vector_store_id='vs_1', owner=self.owner)
 
         list_mock = MagicMock(return_value=types.SimpleNamespace(data=[
             {'id': 'src_1'}
@@ -576,7 +587,7 @@ class VectorStoreFilesViewTests(TestCase):
         retrieve_mock.assert_called_with('src_1')
 
     def test_missing_vector_store_returns_404(self):
-        assistant = Assistant.objects.create(name='NoVS')
+        assistant = Assistant.objects.create(name='NoVS', owner=self.owner)
 
         resp = self.client.get(
             f'/api/assistants/{assistant.id}/vector-store/files/'
@@ -588,9 +599,10 @@ class VectorStoreFilesViewTests(TestCase):
 class VectorStoreFileViewTests(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.owner = get_user_model().objects.create_user(username='own', password='pw')
 
     def test_delete_file(self):
-        assistant = Assistant.objects.create(name='VS', vector_store_id='vs_1')
+        assistant = Assistant.objects.create(name='VS', vector_store_id='vs_1', owner=self.owner)
 
         delete_mock = MagicMock()
 
@@ -611,7 +623,7 @@ class VectorStoreFileViewTests(TestCase):
         delete_mock.assert_called_with(vector_store_id='vs_1', file_id='fileA')
 
     def test_delete_file_missing_vector_store_returns_404(self):
-        assistant = Assistant.objects.create(name='VS')
+        assistant = Assistant.objects.create(name='VS', owner=self.owner)
 
         resp = self.client.delete(
             f'/api/assistants/{assistant.id}/vector-store/files/fileA/'
