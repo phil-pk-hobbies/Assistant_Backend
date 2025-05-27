@@ -28,3 +28,16 @@ Example responses when permission checks fail:
 GET /api/assistants/<id>/        → 404 Not Found (no access)
 PATCH /api/assistants/<id>/      → 403 Forbidden (only "use")
 ```
+
+## Sharing API
+
+Owners (or admins) can share assistants with individual users or entire departments.
+
+```
+POST /api/assistants/<id>/shares/users/ {"user": 5, "permission": "use"}
+POST /api/assistants/<id>/shares/users/ {"user": 5, "permission": "edit"}  # update
+DELETE /api/assistants/<id>/shares/users/5/
+```
+
+Department sharing works the same using the `shares/departments/` routes.
+
