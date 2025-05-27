@@ -12,6 +12,8 @@ from django.http import JsonResponse
 import time
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
+from rest_framework.permissions import IsAuthenticated
+from .permissions import AssistantPermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
@@ -28,6 +30,10 @@ class AssistantViewSet(viewsets.ModelViewSet):
     """
     queryset = Assistant.objects.all()
     serializer_class = AssistantSerializer
+    permission_classes = [IsAuthenticated, AssistantPermission]
+
+    def get_queryset(self):
+        return Assistant.objects.for_user(self.request.user)
 
     def perform_create(self, serializer):
         import openai
@@ -247,8 +253,12 @@ class ChatView(APIView):
     Body: {"content": "..."}
     """
 
+    permission_classes = [IsAuthenticated, AssistantPermission]
+
     def post(self, request, pk):
         assistant = get_object_or_404(Assistant, pk=pk)
+        self.action = "execute"
+        self.check_object_permissions(request, assistant)
         user_msg  = request.data.get("content", "").strip()
         if not user_msg:
             return Response({"detail": "`content` field is required"},
@@ -313,9 +323,12 @@ class ChatView(APIView):
 
 class ResetThreadView(APIView):
     """Delete all messages and remote thread for an assistant."""
+    permission_classes = [IsAuthenticated, AssistantPermission]
 
     def post(self, request, pk):
         assistant = get_object_or_404(Assistant, pk=pk)
+        self.action = "execute"
+        self.check_object_permissions(request, assistant)
         thread_id = assistant.thread_id
 
         if thread_id:
@@ -335,9 +348,12 @@ class ResetThreadView(APIView):
 
 class VectorStoreIdView(APIView):
     """Return the vector store ID for an assistant."""
+    permission_classes = [IsAuthenticated, AssistantPermission]
 
     def get(self, request, pk):
         assistant = get_object_or_404(Assistant, pk=pk)
+        self.action = "retrieve"
+        self.check_object_permissions(request, assistant)
         if not assistant.vector_store_id:
             return Response(
                 {"detail": "No vector store for this assistant."},
@@ -348,9 +364,12 @@ class VectorStoreIdView(APIView):
 
 class VectorStoreFilesView(APIView):
     """Return the files for an assistant's vector store."""
+    permission_classes = [IsAuthenticated, AssistantPermission]
 
     def get(self, request, pk):
         assistant = get_object_or_404(Assistant, pk=pk)
+        self.action = "retrieve"
+        self.check_object_permissions(request, assistant)
         if not assistant.vector_store_id:
             return Response(
                 {"detail": "No vector store for this assistant."},
@@ -389,9 +408,12 @@ class VectorStoreFilesView(APIView):
 
 class VectorStoreFileView(APIView):
     """Delete a single file from an assistant's vector store."""
+    permission_classes = [IsAuthenticated, AssistantPermission]
 
     def delete(self, request, pk, file_id):
         assistant = get_object_or_404(Assistant, pk=pk)
+        self.action = "destroy"
+        self.check_object_permissions(request, assistant)
         if not assistant.vector_store_id:
             return Response(
                 {"detail": "No vector store for this assistant."},
