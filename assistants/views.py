@@ -86,6 +86,7 @@ class AssistantViewSet(viewsets.ModelViewSet):
 
         # 5️⃣  save locally
         serializer.save(
+            owner=self.request.user,
             openai_id=oa_asst.id,
             tools=tools,
             description=data.get("description") or "",
