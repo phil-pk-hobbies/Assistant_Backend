@@ -342,7 +342,11 @@ class VectorStoreFilesView(APIView):
 
         files = []
         for f in resp.data:
-            file_id = getattr(f, "file_id", None)
+            # ``vector_stores.files.list`` returns objects that only include
+            # the file ID (``id``). Some older versions of the code expected a
+            # ``file_id`` attribute which isn't present. Use ``id`` as the file
+            # identifier and fetch the filename separately if needed.
+            file_id = getattr(f, "file_id", None) or getattr(f, "id", None)
             filename = getattr(f, "filename", None)
 
             if not filename and file_id:
@@ -353,7 +357,7 @@ class VectorStoreFilesView(APIView):
                     filename = None
 
             files.append({
-                "id": getattr(f, "id", None),
+                "id": file_id,
                 "filename": filename,
             })
 

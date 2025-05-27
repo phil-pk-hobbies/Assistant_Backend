@@ -518,7 +518,7 @@ class VectorStoreFilesViewTests(TestCase):
         assistant = Assistant.objects.create(name='VS', vector_store_id='vs_1')
 
         list_mock = MagicMock(return_value=types.SimpleNamespace(data=[
-            {'id': 'file1', 'file_id': 'src_1'}
+            {'id': 'src_1'}
         ]))
         retrieve_mock = MagicMock(return_value=types.SimpleNamespace(filename='foo.txt'))
 
@@ -537,7 +537,7 @@ class VectorStoreFilesViewTests(TestCase):
             )
 
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json(), [{'id': 'file1', 'filename': 'foo.txt'}])
+        self.assertEqual(resp.json(), [{'id': 'src_1', 'filename': 'foo.txt'}])
         list_mock.assert_called_with(vector_store_id='vs_1')
         retrieve_mock.assert_called_with('src_1')
 
