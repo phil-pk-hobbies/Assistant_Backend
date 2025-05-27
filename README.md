@@ -41,3 +41,7 @@ DELETE /api/assistants/<id>/shares/users/5/
 
 Department sharing works the same using the `shares/departments/` routes.
 
+
+## Performance
+
+For details on building and deploying optimized static assets, see [docs/static-assets.md](docs/static-assets.md).
