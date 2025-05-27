@@ -22,11 +22,13 @@ class AssistantSerializer(serializers.ModelSerializer):
         required=False,
     )
 
+    owner = serializers.SerializerMethodField()
+    permission = serializers.SerializerMethodField()
     messages = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
 
     class Meta:
         model = Assistant
-        fields = ['id', 'name', 'description', 'instructions', 'model', 'reasoning_effort', 'tools', 'created_at', 'messages']
+        fields = ['id', 'name', 'description', 'instructions', 'model', 'reasoning_effort', 'tools', 'created_at', 'owner', 'permission', 'messages']
         read_only_fields = ['id', 'created_at']
 
     def validate_tools(self, value):
@@ -42,3 +44,15 @@ class AssistantSerializer(serializers.ModelSerializer):
             )
 
         return cleaned
+
+    def get_owner(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user:
+            return False
+        return obj.owner_id == request.user.id
+
+    def get_permission(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user:
+            return None
+        return obj.permission_for(request.user)
