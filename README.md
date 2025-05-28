@@ -50,4 +50,6 @@ For details on building and deploying optimized static assets, see [docs/static-
 
 User conversations are represented by the `Thread` model. File uploads within a
 thread are stored in the `ThreadFile` model which tracks the OpenAI `file_id`,
-upload status and metadata.
+upload status and metadata. Assistant-level uploads use the separate
+`AssistantFile` model. A given `file_id` may appear in **either** table but never
+both.

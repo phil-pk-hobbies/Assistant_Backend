@@ -1,6 +1,7 @@
 import uuid
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
+from file_utils import assert_fileid_unique_across_models
 
 class Thread(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -28,7 +29,7 @@ class ThreadFile(models.Model):
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE, related_name='files')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='thread_files')
     original_name = models.CharField(max_length=255)
-    file_id = models.CharField(max_length=64)
+    file_id = models.CharField(max_length=64, unique=True)
     size_bytes = models.BigIntegerField()
     mime_type = models.CharField(max_length=100, blank=True, null=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='uploading')
@@ -46,3 +47,13 @@ class ThreadFile(models.Model):
 
     def __str__(self):
         return f"thread-{self.thread_id}: {self.original_name}"
+
+    def clean(self):
+        assert_fileid_unique_across_models(self.file_id)
+        return super().clean()
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        with transaction.atomic():
+            assert_fileid_unique_across_models(self.file_id, lock=True)
+            return super().save(*args, **kwargs)
