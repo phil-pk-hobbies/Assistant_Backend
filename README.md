@@ -45,3 +45,9 @@ Department sharing works the same using the `shares/departments/` routes.
 ## Performance
 
 For details on building and deploying optimized static assets, see [docs/static-assets.md](docs/static-assets.md).
+
+## Chat threads
+
+User conversations are represented by the `Thread` model. File uploads within a
+thread are stored in the `ThreadFile` model which tracks the OpenAI `file_id`,
+upload status and metadata.
